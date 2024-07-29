@@ -1,67 +1,92 @@
-# Serif Health Takehome Interview
+# Anthem PPO URL Extraction Project
 
-This repository contains the files and instructions for our takehome engineering interview. Please *locally* copy to your own public repo or [import](https://github.com/new/import) to your github account for use in sharing solutions back to us. Direct public forks and pull requests will expose your identity and solution to other candidates also working on this interview question, and we want the interview process to be fair for everyone. 
+## Project Overview
 
-## Context
-Serif Health was founded with a mission to make the US healthcare system more transparent, efficient, and affordable for everyone. One of the challenging problems we're solving at Serif Health is making healthcare *pricing* data transparent and uniform for all market participants. There are myriad reasons this is difficult.
+This project aims to extract URLs for Anthem PPO plans in New York state from a large JSON index file. The goal is to identify and isolate the relevant URLs from a complex and extensive dataset.
 
-At the macro level:
-- Most data in healthcare is protected by law, sensitive by default and tends to be locked up in proprietary systems or data formats.
-- The data aggregators and clearinghouses that do have access to clean, normalized bulk data assets tend to employ extremely expensive and restrictive licensing terms. 
-- While recent price transparency laws have required hospitals and carriers to publish their pricing, compliance and data sharing occurs at varying levels of completeness and consistency.  
+### Initial Approach
 
-At the micro level:
-- Medical billing and coding for a specific procedure can be very complicated and is contingent on place of service, patient history and comorbidities, structure of insurance arrangements, so on and so forth. Many procedures are lots of N of 1 type cases. 
-- Insurance companies (carriers) establish pre-negotiated non-published contracted rates with each facility, physician group, or health system that reimburses the healthcare provider at a rate and structure very different from what is 'charged'. 
+- Used a combination of URL and description to identify relevant files.
+- Implemented a simple filtering mechanism based on keywords "PPO" and "New York" in the description.
+- Utilized Go's built-in JSON decoding and gzip decompression to handle the large input file.
 
-Summed together, all this complexity contributes to a general lack of transparency and market efficency in our healthcare system.
+### Observations and Challenges
 
+- The initial pass yielded about 56 files, indicating potential over-inclusion.
+- URLs contained subdomains for insurances not related to New York (e.g., anthembcbsco for Colorado).
+- The description field proved unreliable for accurate identification of New York PPO plans.
 
+### Current Approach
 
-## Objective
-In July 2022, insurance carriers were required to publish their negotiated prices with all providers and facilities under the Transparency in Coverage Act. Pricing for every procedure code for every provider in the country is a lot of data; thus, the published files are extremely large and require some forethought and skill to be able to work with them. 
+The current implementation uses two main criteria to identify New York PPO plans:
 
-Our customers typically want to know and compare reimbursement rates for healthcare services from specific carriers. E.g., what does Anthem reimburse orthopedic surgeons in New York state for total knee replacement surgery? To get there, we need to go to Anthem's Transparency in Coverage website, find their appropriate index file (also called a table of contents file), look up the MRF file URLs in the index for the correct plan, pull the MRF, extract the data, and we have our answer. The challenge for us is that carriers don't always follow the schemas, so these postings and indexes aren't always easy to decipher - it takes some sleuthing and creativity to get to the answers we seek. 
+1. The subdomain "empirebcbs" to identify New York plans.
+2. The presence of "ppo" in the description to identify PPO plans.
 
-For this interview, we'll give you an index file URL and we'll skip in-network MRF processing for now, since the data elements in the in-network file are significantly more complex and variant. 
+### Identified Challenges with Current Approach
 
-Your task is to write some code that can open an index file, stream through it, and isolate a set of network files in the index. We'd simply like to know, *what is the list of machine readable file URLs that represent the Anthem PPO network in New York state*? 
+- **Plan Identifier Variability**: The plan identifiers in the URLs are more varied than initially thought (e.g., "301_71A0", "800_72A0", "302_42B0", "020_02I0", "361_50I0"). This makes it difficult to use them as reliable indicators of PPO plans.
+- **Reliance on Description**: Using the description to identify PPO plans may not be entirely reliable, as it could lead to both false positives and false negatives.
+- **Lack of Standardized** Identification: There doesn't seem to be a standardized way to identify PPO plans solely from the URL structure.
+- **Connecting Reporting Plans**: Difficulty in connecting reporting plans with file locations to better identify and uniquely identify plans.
+- **Multi-part Files**: Implementing a completeness check for multi-part files.
 
+### Potential Improvements
 
-## Inputs
-The input to this takehome is the Anthem machine readable index file [table of contents](https://antm-pt-prod-dataz-nogbd-nophi-us-east1.s3.amazonaws.com/anthem/2024-07-01_anthem_index.json.gz) for the most recent month. 
+- **EIN Utilization**: Investigate the use of Employer Identification Numbers (EINs) or other unique identifiers for more precise plan identification.
+- **Deeper Analysis**: Conduct a thorough analysis of the relationship between plan identifiers and plan types to potentially derive a pattern or rule set.
+- **Additional Data Sources**: Explore the possibility of using additional data from the index file or external sources to improve plan type identification.
+- **Expert Consultation**: Consider reaching out to Anthem or industry experts for insights into their naming conventions and plan identification methods.
+- **Robust Validation**: Implement a more robust validation system for multi-part files.
 
-You should write code that can open the machine readable index file and extract some in-network file URLs from it according to the schema published at [CMS' transparency in coverage repository](https://github.com/CMSgov/price-transparency-guide/tree/master/schemas/table-of-contents), so you can extract the data requested.
+### Next Steps
 
-## Outputs
-Your output should be the list of machine readable file URLs corresponding to Anthem's PPO in New York state. Make sure to read through the hints and pointers section before declaring your solution complete.
+- Conduct further research on plan identifiers and their relationship to plan types.
+- Investigate the structure of the Reporting Plans Object and how it can be utilized for more accurate plan identification.
+- Analyze the full dataset to identify any patterns or consistencies that could improve the identification process.
+- Consider developing a more sophisticated algorithm that takes into account multiple factors (subdomain, plan identifier, description, EIN) to classify plans.
 
-## Hints and Pointers
-As you start working with the index, you'll quickly notice that the index file itself is extremly large, data is very frequently repeated, plan descriptions seem to contain random businesses in various regions around the country, and that there are a handful of different url styles. 
+### Conclusion
 
-- How do you handle the file size and format efficiently, when the uncompressed file will exceed memory limitations on most systems? 
-- When you look at your output URL list, which segments of the URL are changing, which segments are repeating, and what might that mean?
-- Is the 'description' field helpful? Is it complete? Does it change relative to 'location'? Is Highmark the same as Anthem?
-- Anthem has an interactive MRF lookup system. This lookup can be used to gather additional information - but it requires you to input the EIN or name of an employer who offers an Anthem health plan: [Anthem EIN lookup](https://www.anthem.com/machine-readable-file/search/). How might you find a business likely to be in the Anthem NY PPO? How can you use this tool to confirm if your answer is complete?
+While progress has been made in isolating New York PPO plan URLs, significant challenges remain in achieving high accuracy and completeness. The project demonstrates the complexity of working with large, inconsistently structured datasets and the importance of iterative refinement in data processing tasks. Further research and possibly additional data sources will be necessary to refine the identification process and improve the accuracy of the results.
 
-Use creative thinking and your best judgement to proceed here, and discuss your decisions in your writeup. 
+### Timebox Constraint
 
+Due to the need to understand the context related to insurance and the likes, the solution took over 2 hours to research and gain a good understanding of terms like MRF and PPO. Once that was determined, a better gauge of what needed to be done was achieved, allowing for more efficient time-boxing. The total time spent on coding the solution was limited to approximately 2 hours as per the requirements.
 
-### Deliverable
-You should [send us](mailto:engineering@serifhealth.com) a link to a public repository or zip file that contains at miminum:
-1. The script or code used to parse the file and produce output. 
-2. The setup or packaging file(s) required to bootstrap and execute your solution code
-3. The output URL list.
-4. A README file, explaining your solution, how long it took you to write, how long it took to run, and the tradeoffs you made along the way. 
+## File Descriptions
 
-## Expectations
-### Time vs Quality
-We are a small engineering team with limited resources, and often have to make hard tradeoffs to meet deadlines and make rapid forward progress. We do not want this takehome to take more than a few hours out of your day. So, please timebox coding your solution to two hours max, and know that you have the opportunity to discuss the tradeoffs you made when submitting your solution. Experienced engineers should be able to complete the coding portion in about 90 minutes, perhaps less if you have prior healthcare experience. If you think this will take you dramatically more time than that, let us know before starting the takehome so we can discuss why. 
+- `first_pass_through.txt`: This file contains intermediate data from the first pass through the JSON index file. It includes all potential matches before applying more stringent filtering criteria.
+- `second_pass_through.txt`: This file contains data from the second pass through the JSON index file. It includes a refined list of matches after applying additional filtering criteria and improvements to the extraction logic.
+- `chunk.json`: A sample chunk of the JSON data used for testing and validation purposes. This file helps in understanding the structure and content of the index file, allowing for better development and debugging of the extraction logic.
 
-If you finish early, we'd recommend adding additional notes or commentary to the README (e.g. discussion of performance characteristics, how you would ideally test/deploy/run your code in a production environment, feature iterations that might come next, so on), but please don't exceed the timebox doing so. 
+## Instructions to Run the Script
 
-### Language Choice
-You can choose any language you want, but your solution should be portable enough to run on someone else's machine. 
+1. Dependencies: Ensure you have Go installed on your machine.
+2. Input File: Place the `anthem_Index_2024-07-01.json.gz` file in the root directory of the project. If you decide to name it differently, update the main.go inputfile variable accordingly.
+3. Run the Script: Execute the script using the command `go run main.go`.
+4. Output: The resulting URLs will be written to `anthem_ny_ppo_urls.txt`.
 
-### Dependencies
-You can and *probably should* use dependencies (JSON parsers, type validators, etc) and libraries from public package managers in your language of choice. Again, your solution should be portable enough to run on someone else's machine, so if you leverage packaged dependencies this please make sure relevant setup instructions to install the dependencies and execute the solution are included.
+### Example Command
+
+```sh
+go run main.go
+```
+
+This README now provides a comprehensive overview of the project, detailing the initial and current approaches, observed challenges, potential improvements, next steps, and instructions for running the script.
+
+### Time Taken to Run the Code
+
+The script processes a large JSON file, which may take a few minutes depending on the size of the file and the performance of the machine. Typically, it should take less than 10 minutes to run the script on a standard machine.
+
+### Tradeoffs Made
+
+Efficiency vs. Simplicity: Chose to handle JSON parsing incrementally to avoid memory issues while keeping the code simple.
+Pattern Matching: Focused on specific patterns in descriptions for efficient filtering, knowing it might not capture all edge cases.
+Time Constraints: Limited the depth of validation and robustness of error handling due to the 2-hour time constraint.
+
+### Future Improvements
+
+Implement more robust error handling and logging.
+Optimize performance by parallelizing URL extraction.
+Use additional data sources or algorithms for better plan identification.
